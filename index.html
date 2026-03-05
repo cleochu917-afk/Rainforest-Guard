@@ -582,111 +582,145 @@ function SVGRadar({ userRaw, baseline }) {
   );
 }
 
-// ── SHARE IMAGE (Canvas) ───────────────────────────────────────
+// ── SHARE IMAGE (Canvas) ─────────────────────────────────────
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const chars = text.split('');
+  let line = '';
+  let lines = [];
+  for (let i = 0; i < chars.length; i++) {
+    const testLine = line + chars[i];
+    if (ctx.measureText(testLine).width > maxWidth && line !== '') {
+      lines.push(line); line = chars[i];
+    } else { line = testLine; }
+  }
+  lines.push(line);
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lineHeight));
+  return lines.length;
+}
 
 function generateShareImage(guardian, norm) {
   return new Promise(resolve => {
-    const W=750, H=1334;
+    const W=750, H=1200;
     const canvas = document.createElement('canvas');
     canvas.width=W; canvas.height=H;
     const ctx=canvas.getContext('2d');
 
-    // BG
+    // Background
     const bg=ctx.createLinearGradient(0,0,0,H);
     bg.addColorStop(0,'#0a0d12'); bg.addColorStop(0.5,'#111620'); bg.addColorStop(1,'#0a0d12');
     ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-    // Outer border
+    // Borders
     ctx.strokeStyle='#B8860B'; ctx.lineWidth=3;
     ctx.beginPath(); roundRect(ctx,14,14,W-28,H-28,8); ctx.stroke();
     ctx.strokeStyle='rgba(184,134,11,0.3)'; ctx.lineWidth=1;
     ctx.beginPath(); roundRect(ctx,22,22,W-44,H-44,6); ctx.stroke();
 
     // Corner ornaments
-    ctx.fillStyle='#D4A843'; ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    [['✦',38,38],['✦',W-38,38],['◈',38,H-38],['◈',W-38,H-38]].forEach(([s,x,y])=>ctx.fillText(s,x,y));
+    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    [['✦',38,38,'#D4A843'],['✦',W-38,38,'#D4A843'],['◈',38,H-38,'#D4A843'],['◈',W-38,H-38,'#D4A843']].forEach(([s,x,y,c])=>{ctx.fillStyle=c;ctx.fillText(s,x,y);});
 
     // Top label
-    ctx.fillStyle='rgba(212,168,67,0.65)'; ctx.font='16px serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(212,168,67,0.65)'; ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
     ctx.fillText('🜂  寻找你的雨林守护神  🜂', W/2, 62);
     const g1=ctx.createLinearGradient(100,0,W-100,0);
     g1.addColorStop(0,'transparent'); g1.addColorStop(0.5,'#B8860B'); g1.addColorStop(1,'transparent');
-    ctx.strokeStyle=g1; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(100,82); ctx.lineTo(W-100,82); ctx.stroke();
+    ctx.strokeStyle=g1; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(100,80); ctx.lineTo(W-100,80); ctx.stroke();
 
-    // Tarot card image
+    // Load guardian image
     const img=new Image();
     img.onload=()=>{
-      const cW=260, cH=416, cX=(W-cW)/2, cY=100;
-      ctx.shadowColor=`${guardian.glow}88`; ctx.shadowBlur=32;
+      // Tarot card
+      const cW=260, cH=416, cX=(W-cW)/2, cY=96;
+      ctx.shadowColor=`${guardian.glow}99`; ctx.shadowBlur=28;
       ctx.fillStyle='#0a0d12'; ctx.beginPath(); roundRect(ctx,cX,cY,cW,cH,10); ctx.fill();
       ctx.shadowBlur=0;
       ctx.save(); ctx.beginPath(); roundRect(ctx,cX,cY,cW,cH,10); ctx.clip();
       ctx.drawImage(img,cX,cY,cW,cH); ctx.restore();
-      ctx.strokeStyle='#B8860B'; ctx.lineWidth=2.5;
-      ctx.beginPath(); roundRect(ctx,cX,cY,cW,cH,10); ctx.stroke();
-      ctx.strokeStyle='rgba(184,134,11,0.4)'; ctx.lineWidth=1;
-      ctx.beginPath(); roundRect(ctx,cX+5,cY+5,cW-10,cH-10,7); ctx.stroke();
+      // Card borders
+      ctx.strokeStyle='#B8860B'; ctx.lineWidth=2.5; ctx.beginPath(); roundRect(ctx,cX,cY,cW,cH,10); ctx.stroke();
+      ctx.strokeStyle='rgba(184,134,11,0.4)'; ctx.lineWidth=1; ctx.beginPath(); roundRect(ctx,cX+5,cY+5,cW-10,cH-10,7); ctx.stroke();
 
-      // Name & title
-      ctx.fillStyle='#E8DCC8'; ctx.font='bold 52px "Noto Serif SC",serif'; ctx.textAlign='center';
-      ctx.fillText(guardian.name, W/2, cY+cH+58);
-      ctx.fillStyle='#D4A843'; ctx.font='italic 26px "Cormorant Garamond",serif';
-      ctx.fillText(guardian.title, W/2, cY+cH+94);
+      let y = cY + cH + 44;
+
+      // Guardian name
+      ctx.fillStyle='#E8DCC8'; ctx.font='bold 52px serif'; ctx.textAlign='center';
+      ctx.fillText(guardian.name, W/2, y); y += 42;
+
+      // Title
+      ctx.fillStyle='#D4A843'; ctx.font='italic 24px serif';
+      ctx.fillText(guardian.title, W/2, y); y += 28;
+
+      // Divider
       const g2=ctx.createLinearGradient(140,0,W-140,0);
       g2.addColorStop(0,'transparent'); g2.addColorStop(0.5,'#B8860B'); g2.addColorStop(1,'transparent');
-      ctx.strokeStyle=g2; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(140,cY+cH+116); ctx.lineTo(W-140,cY+cH+116); ctx.stroke();
+      ctx.strokeStyle=g2; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(140,y); ctx.lineTo(W-140,y); ctx.stroke();
+      y += 24;
 
       // Whisper
-      ctx.fillStyle='rgba(200,186,168,0.9)'; ctx.font='italic 27px "Cormorant Garamond",serif';
-      ctx.fillText('「'+guardian.whisper+'」', W/2, cY+cH+148);
+      ctx.fillStyle='rgba(200,186,168,0.92)'; ctx.font='italic 26px serif'; ctx.textAlign='center';
+      ctx.fillText('「'+guardian.whisper+'」', W/2, y); y += 38;
 
       // Archetype badge
-      const bW=190,bH=36,bX=W/2-bW/2,bY=cY+cH+170;
+      const bW=190,bH=36,bX=W/2-bW/2;
       ctx.fillStyle='rgba(45,106,79,0.4)'; ctx.strokeStyle='#3a8a65'; ctx.lineWidth=1;
-      ctx.beginPath(); roundRect(ctx,bX,bY,bW,bH,18); ctx.fill();
-      ctx.beginPath(); roundRect(ctx,bX,bY,bW,bH,18); ctx.stroke();
-      ctx.fillStyle='#E8DCC8'; ctx.font='22px "Noto Serif SC",serif';
-      ctx.fillText(guardian.arch, W/2, bY+bH/2+1);
+      ctx.beginPath(); roundRect(ctx,bX,y-26,bW,bH,18); ctx.fill();
+      ctx.beginPath(); roundRect(ctx,bX,y-26,bW,bH,18); ctx.stroke();
+      ctx.fillStyle='#E8DCC8'; ctx.font='20px serif'; ctx.textAlign='center';
+      ctx.fillText(guardian.arch, W/2, y-4); y += 28;
 
-      // Radar
-      const rcx=W/2, rcy=cY+cH+360, maxR=105;
-      const dims=DIM_ORDER, n=dims.length;
-      [20,40,60,80,100].forEach(rv=>{
-        const pts=dims.map((_,i)=>{const a=(Math.PI*2*i)/n-Math.PI/2,r=(rv/100)*maxR;return[rcx+r*Math.cos(a),rcy+r*Math.sin(a)];});
-        ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); ctx.closePath();
-        ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1; ctx.stroke();
-      });
-      dims.forEach((_,i)=>{const a=(Math.PI*2*i)/n-Math.PI/2;ctx.beginPath();ctx.moveTo(rcx,rcy);ctx.lineTo(rcx+maxR*Math.cos(a),rcy+maxR*Math.sin(a));ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;ctx.stroke();});
-      const bPts=dims.map((k,i)=>{const a=(Math.PI*2*i)/n-Math.PI/2,r=(guardian.base[k]/100)*maxR;return[rcx+r*Math.cos(a),rcy+r*Math.sin(a)];});
-      ctx.beginPath(); ctx.moveTo(bPts[0][0],bPts[0][1]); bPts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); ctx.closePath();
-      ctx.strokeStyle='#2D6A4F'; ctx.lineWidth=2; ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
-      const uPts=dims.map((k,i)=>{const a=(Math.PI*2*i)/n-Math.PI/2,raw=norm[k]||0,base=guardian.base[k],diff=Math.max(-18,Math.min(18,raw-base)),val=Math.max(10,Math.min(98,base+diff)),r=(val/100)*maxR;return[rcx+r*Math.cos(a),rcy+r*Math.sin(a)];});
-      ctx.beginPath(); ctx.moveTo(uPts[0][0],uPts[0][1]); uPts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); ctx.closePath();
-      ctx.fillStyle='rgba(212,168,67,0.2)'; ctx.fill(); ctx.strokeStyle='#D4A843'; ctx.lineWidth=2; ctx.stroke();
-      uPts.forEach(p=>{ctx.beginPath();ctx.arc(p[0],p[1],4,0,Math.PI*2);ctx.fillStyle='#D4A843';ctx.fill();});
-      dims.forEach((k,i)=>{const a=(Math.PI*2*i)/n-Math.PI/2,lr=maxR+28;ctx.fillStyle='#9A8F7E';ctx.font='19px "Noto Serif SC",serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(DIM_LABELS[k],rcx+lr*Math.cos(a),rcy+lr*Math.sin(a));});
+      // Scene text box
+      const boxX=48, boxW=W-96, padding=22;
+      ctx.fillStyle='rgba(20,25,35,0.7)';
+      ctx.strokeStyle='rgba(184,134,11,0.15)'; ctx.lineWidth=1;
+      // measure text height first
+      ctx.font='20px serif'; ctx.textAlign='left';
+      const sceneLines = [];
+      const words = guardian.scene;
+      let line2 = '';
+      for(let i=0;i<words.length;i++){
+        const test=line2+words[i];
+        if(ctx.measureText(test).width>boxW-padding*2 && line2!==''){sceneLines.push(line2);line2=words[i];}
+        else{line2=test;}
+      }
+      sceneLines.push(line2);
+      const boxH2 = sceneLines.length*30+padding*2;
+      ctx.beginPath(); roundRect(ctx,boxX,y,boxW,boxH2,8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(200,186,168,0.85)'; ctx.font='20px serif'; ctx.textAlign='left';
+      sceneLines.forEach((l,i)=>ctx.fillText(l,boxX+padding,y+padding+20+i*30));
+      y += boxH2 + 22;
 
-      // Radar title
-      ctx.fillStyle='rgba(212,168,67,0.6)'; ctx.font='16px serif'; ctx.textAlign='center';
-      ctx.fillText('✦ 你的森林印记', W/2, cY+cH+232);
+      // Special skill
+      ctx.fillStyle='rgba(184,134,11,0.08)';
+      ctx.strokeStyle='#B8860B'; ctx.lineWidth=3;
+      const skillBoxH=80;
+      ctx.beginPath(); ctx.moveTo(boxX,y); ctx.lineTo(boxX,y+skillBoxH); ctx.stroke();
+      ctx.fillStyle='rgba(184,134,11,0.06)';
+      ctx.fillRect(boxX+3,y,boxW-3,skillBoxH);
+      ctx.fillStyle='rgba(212,168,67,0.6)'; ctx.font='14px serif'; ctx.textAlign='left';
+      ctx.fillText('✦ 你的特殊天赋', boxX+18, y+22);
+      ctx.fillStyle='#D4A843'; ctx.font='bold 22px serif';
+      ctx.fillText('⊕ '+guardian.skill, boxX+18, y+46);
+      ctx.fillStyle='rgba(200,186,168,0.8)'; ctx.font='18px serif';
+      ctx.fillText(guardian.skillD, boxX+18, y+68);
+      y += skillBoxH + 30;
 
-      // Legend
-      ctx.textAlign='left';
-      [[W/2-80,'#D4A843','你的印记'],[W/2+10,'#2D6A4F','守护神基准']].forEach(([x,c,lbl])=>{
-        ctx.beginPath(); ctx.arc(x,rcy+maxR+32,5,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
-        ctx.fillStyle='#7a7060'; ctx.font='17px serif'; ctx.fillText(lbl,x+12,rcy+maxR+37);
-      });
+      // Footer line
+      if(y < H-60) {
+        const g3=ctx.createLinearGradient(100,0,W-100,0);
+        g3.addColorStop(0,'transparent'); g3.addColorStop(0.5,'#B8860B'); g3.addColorStop(1,'transparent');
+        ctx.strokeStyle=g3; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(100,H-58); ctx.lineTo(W-100,H-58); ctx.stroke();
+        ctx.fillStyle='rgba(122,112,96,0.7)'; ctx.font='italic 18px serif'; ctx.textAlign='center';
+        ctx.fillText('🜄 愿你在每一片森林的呼吸里，找到你自己。', W/2, H-36);
+      }
 
-      // Footer
-      const g3=ctx.createLinearGradient(100,0,W-100,0);
-      g3.addColorStop(0,'transparent'); g3.addColorStop(0.5,'#B8860B'); g3.addColorStop(1,'transparent');
-      ctx.strokeStyle=g3; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(100,H-68); ctx.lineTo(W-100,H-68); ctx.stroke();
-      ctx.fillStyle='rgba(122,112,96,0.7)'; ctx.font='italic 19px "Cormorant Garamond",serif';
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('🜄 愿你在每一片森林的呼吸里，找到你自己。', W/2, H-42);
-
-      resolve(canvas.toDataURL('image/png'));
+      // Export as PNG blob for reliable download
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        resolve(url);
+      }, 'image/png', 1.0);
     };
     img.src = IMGS[guardian.id];
   });
@@ -707,8 +741,11 @@ function ShareSheet({ guardian, norm, onClose }) {
     if (!imgUrl) return;
     const a = document.createElement('a');
     a.href = imgUrl;
-    a.download = `守护神_${guardian.name}.png`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    a.download = '守护神_' + guardian.name + '.png';
+    a.type = 'image/png';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(imgUrl); }, 1000);
   }
 
   function openWeibo() {
@@ -788,7 +825,13 @@ function Result({ scores, onRestart }) {
   const norm = {};
   Object.keys(scores).forEach(k => { norm[k] = Math.round(scores[k]/20*100); });
 
-  function dist(g) { return Math.sqrt(Object.keys(g.base).reduce((s,k) => s+Math.pow((norm[k]||0)-g.base[k],2),0)); }
+  // Rarity bias: positive = rarer, negative = more common
+  // Target: jaguar ~12%, tapir ~13%, others ~18-19% each
+  const RARITY_BIAS = { jaguar:10, tapir:7, anaconda:-3, capybara:-5, otter:-5, pufferfish:-4 };
+  function dist(g) {
+    const raw = Math.sqrt(Object.keys(g.base).reduce((s,k) => s+Math.pow((norm[k]||0)-g.base[k],2),0));
+    return raw + (RARITY_BIAS[g.id] || 0);
+  }
   const guardian = GUARDIANS.reduce((b,g) => dist(g)<dist(b)?g:b, GUARDIANS[0]);
 
   return (
@@ -805,6 +848,16 @@ function Result({ scores, onRestart }) {
       </div>
       <TarotCard guardian={guardian}/>
       <div className="sec">
+        <div className="sec-h">🜂 神性档案</div>
+        <span className="badge">{guardian.arch}</span>
+        <p className="scene">{guardian.scene}</p>
+        <div className="skill-box">
+          <div className="skill-label">✦ 你的特殊天赋</div>
+          <div className="skill-nm">⊕ {guardian.skill}</div>
+          <div className="skill-ds">{guardian.skillD}</div>
+        </div>
+      </div>
+      <div className="sec">
         <div className="sec-h">✦ 你的森林印记</div>
         <SVGRadar userRaw={norm} baseline={guardian.base}/>
         <div style={{display:'flex',justifyContent:'center'}}>
@@ -814,16 +867,6 @@ function Result({ scores, onRestart }) {
           </div>
         </div>
         <div className="rad-cap">两条线越接近，你与守护神的契合度越高</div>
-      </div>
-      <div className="sec">
-        <div className="sec-h">🜂 神性档案</div>
-        <span className="badge">{guardian.arch}</span>
-        <p className="scene">{guardian.scene}</p>
-        <div className="skill-box">
-          <div className="skill-label">✦ 你的特殊天赋</div>
-          <div className="skill-nm">⊕ {guardian.skill}</div>
-          <div className="skill-ds">{guardian.skillD}</div>
-        </div>
       </div>
       <div className="btn-row">
         <button className="btn-ghost" onClick={onRestart}>重新探索</button>
